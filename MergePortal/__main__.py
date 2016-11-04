@@ -230,6 +230,7 @@ for metaFile in metaFiles:
 	baseData.update(newData)
 	if "name" in baseData:
 		baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
+		#baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
 	if "description" in baseData:
 		baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
 		pos=baseData["description"].find(" (BATCHES:")
