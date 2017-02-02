@@ -212,7 +212,7 @@ for fTuple in rbindFiles:
 	print "mergedFile =", mergedFile
 	print
 	mergedTable=rbind(mergeList,unionFieldNames)
-	writeTable(mergedTable,mergedFile)
+	writeTable(mergedTable,mergedFile,replace_cancer_type=(fTuple[0]=="data_clinical.txt"))
 
 
 cnaTuple=("data_CNA.txt",None)
@@ -240,9 +240,9 @@ for metaFile in metaFiles:
 	if "description" in baseData:
 		baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
 		pos=baseData["description"].find(" (BATCHES:")
-    displayBatches = shortMergeBatches
-    if fTuple[0] == "meta_study.txt":
-      displayBatches = mergeBatches
+		displayBatches = shortMergeBatches
+		if fTuple[0] == "meta_study.txt":
+			displayBatches = mergeBatches
 		if pos>-1:
 			baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % mergeBatches
 		else:

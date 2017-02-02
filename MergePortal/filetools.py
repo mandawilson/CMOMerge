@@ -67,8 +67,16 @@ def rbind(fnameList, unionFields=False):
 	return (fieldnames,data)
 
 
-def writeTable(table,outfile):
+def writeTable(table,outfile,replace_cancer_type=None):
 	fp=smartOpen(str(outfile),mode="w")
+	if replace_cancer_type and "CANCER_TYPE" in table[0] and "ONCOTREE_CODE" in table[0]:
+		table[0].remove("CANCER_TYPE")
+		for r in table[1]:
+			if "CANCER_TYPE" in r and ("ONCOTREE_CODE" not in r or not r["ONCOTREE_CODE"]):
+				r["ONCOTREE_CODE"] = r["CANCER_TYPE"]
+			if "CANCER_TYPE" in r:
+				del r["CANCER_TYPE"]
+
 	cout=csv.DictWriter(fp,table[0],delimiter=CSVDELIM,lineterminator="\n")
 	cout.writeheader()
 	for r in table[1]:
