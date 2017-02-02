@@ -244,9 +244,9 @@ for metaFile in metaFiles:
 		if fTuple[0] == "meta_study.txt":
 			displayBatches = mergeBatches
 		if pos>-1:
-			baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % mergeBatches
+			baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % displayBatches
 		else:
-			baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, mergeBatches)
+			baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, displayBatches)
 	outFile=resolvePathToFile(outPath,fTuple,dict(studyId=studyId))
 	print outFile
 	writeMetaFile(outFile,metaFiles[metaFile].substitute(baseData))
