@@ -149,7 +149,7 @@ print "mergeBatches =", mergeBatches
 batches = mergeBatches.split(",")
 shortMergeBatches = mergeBatches
 if len(batches) > 3:
-  shortMergeBatches = "%s,,%d_total" % (batches[0], len(batches))
+	shortMergeBatches = "%s,,%d_total" % (batches[0], len(batches))
 print "mergeBatches =", mergeBatches
 print "shortMergeBatches=", shortMergeBatches
 print "projectList =", projectList
@@ -300,23 +300,26 @@ if(len(mergeList)>0):
 	writeMetaFile(outputFile, metaFilesOptional[metaFile].substitute(newData))
 print
 
+fusionDataFile="data_fusions.txt"
+dataMergeList=getPathsForMergeRegEx(projectList,fusionDataFile)
+if len(dataMergeList)>0:
+	unionFieldNames=False
+	dataOutputFile=os.path.join(str(outPath),fusionDataFile)
+	fusionMetaFile="meta_fusions.txt"
+	for mf in dataMergeList:
+		print "inputFile =", mf
+	print "mergedFile =", dataOutputFile
+	print
+	mergedTable=rbind(dataMergeList,unionFieldNames)
+	writeTable(mergedTable,dataOutputFile)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	metaMergeList=getPathsForMergeRegEx(projectList,fusionMetaFile)
+	# write meta file here too if we find any
+	if len(metaMergeList)>0:
+		metaOutputFile=os.path.join(str(outPath),fusionMetaFile)
+		print "Creating", metaOutputFile
+		print "Using", metaMergeList[0]
+		baseData=parseMetaData(metaMergeList[0])
+		baseData.update(newData)
+		writeMetaFile(metaOutputFile, metaFilesOptional[fusionMetaFile].substitute(baseData))
 

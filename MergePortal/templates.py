@@ -38,5 +38,14 @@ metaFilesOptional={
  	"meta_timeline.txt":Template(
 """cancer_study_identifier: $studyId
 """
+),
+  "meta_fusions.txt":Template(
+"""cancer_study_identifier: $studyId
+stable_id: ${studyId}_mutations
+datatype: $datatype
+genetic_alteration_type: $genetic_alteration_type
+show_profile_in_analysis_tab: $show_profile_in_analysis_tab
+profile_description: $profile_description
+profile_name: $profile_name"""
 )
 }
