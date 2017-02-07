@@ -303,7 +303,7 @@ print
 fusionDataFile="data_fusions.txt"
 dataMergeList=getPathsForMergeRegEx(projectList,fusionDataFile)
 if len(dataMergeList)>0:
-	unionFieldNames=True
+	unionFieldNames=False
 	dataOutputFile=os.path.join(str(outPath),fusionDataFile)
 	fusionMetaFile="meta_fusions.txt"
 	for mf in dataMergeList:
