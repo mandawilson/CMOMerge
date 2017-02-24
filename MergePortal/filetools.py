@@ -46,9 +46,9 @@ def rbind(fnameList, unionFields, sample_to_group):
 	fieldnames=[]
 	data=[]
 	include_samples = set()
+	sample_id_field = None
 	if sample_to_group:
 		include_samples = set(sample_to_group.keys())
-		sample_id_field = None
 		if sample_to_group: # filter samples
 			if fnameList and (fnameList[0].name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
 				sample_id_field = "SAMPLE_ID"
@@ -79,7 +79,7 @@ def rbind(fnameList, unionFields, sample_to_group):
 				sys.exit()
 		for rec in cin:
 			if not sample_id_field or rec[sample_id_field] in include_samples:
-				if rec[sample_id_field] in include_samples and (fname.name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
+				if sample_id_field and rec[sample_id_field] in include_samples and (fname.name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
 					rec["PATIENT_ID"] = sample_to_group[rec[sample_id_field]]
 				data.append(dict(rec))
 	return (fieldnames,data)
@@ -256,7 +256,7 @@ def getCaseList(path, include_samples):
 		for line in fp:
 			if line.startswith("case_list_ids:"):
 				project_samples = set(line.strip().split()[1:])
-				if len(project_samples) > 0:
+				if len(include_samples) > 0:
 					return include_samples & project_samples # return intersection of sets
 				else:
 					return project_samples
