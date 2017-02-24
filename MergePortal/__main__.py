@@ -240,19 +240,26 @@ cnaTuple=("data_CNA.txt",None)
 mergedTable=mergeCNAData(mergeList,geneList,include_samples)
 writeTable(mergedTable,mergedFile)
 
+# if this is not a virtual study and we have a meta study file
+# use the fields in it, rather than just using that file as the final file
+newData=dict()
+if not args.virtualGroupFile and args.metaStudyFile:
+	newData=parseMetaData(args.metaStudyFile) 
+
 today=str(datetime.date.today())
-newData=dict(
+newData.update(dict(
 	studyId=studyId,tumorType=tumorType,upperTumorType=tumorType.upper(),
 	projectNumber="%s [%s]" % (projectNumber,projectTag),
 	lastUpdateDate=today
-	)
+	))
 
 for metaFile in metaFiles:
 	fTuple=getFileTemplates(metaFile)[0]
 	outFile=resolvePathToFile(outPath,fTuple,dict(studyId=studyId))
 	print outFile
 	baseFile=resolvePathToFile(basePath,fTuple,dict(studyId=getStudyId(baseProject)))
-	if args.metaStudyFile and baseFile.name == "meta_study.txt":
+	# if virtual study just copy this file
+	if args.virtualGroupFile and args.metaStudyFile and baseFile.name == "meta_study.txt":
 		print "Copying", metaFile
 		shutil.copyfile(args.metaStudyFile, str(outFile))
 	else:
