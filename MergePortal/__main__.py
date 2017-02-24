@@ -198,14 +198,24 @@ basePath=Path(baseProject)
 
 
 caseFiles=["cases_all.txt","cases_cna.txt","cases_cnaseq.txt","cases_sequenced.txt"]
+samples_to_projects=defaultdict(set)
 for caseFile in caseFiles:
 	samples = set()
 	for project in projectList:
 		projectPath=Path(project)
 		# filter this if virtual project by passing set(sample_to_group.keys())
-		samples |= getCaseList(projectPath / caseListDir / caseFile, include_samples)
+		project_samples = getCaseList(projectPath / caseListDir / caseFile, include_samples)
+		samples |= project_samples
+		for sample in project_samples:
+			samples_to_projects[sample].add(project)
 	writeCaseLists(outPath / caseListDir, caseFile, samples, studyId)
 
+replicate_samples = [ (s, p) for (s, p) in samples_to_projects.iteritems() if len(p) > 1]
+if replicate_samples:
+	print >>sys.stderr, "\nReplicate samples found:"
+	for (sample, projects) in replicate_samples:
+		print >>sys.stderr, "Sample", sample, "is found in projects:", ", ".join(projects) , "\n"
+	sys.exit(64) # this will be the exit code for this specific issue
 
 rbindFiles=getFileTemplates("""
 	data_clinical.txt
