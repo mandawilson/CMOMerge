@@ -252,29 +252,29 @@ for metaFile in metaFiles:
 	outFile=resolvePathToFile(outPath,fTuple,dict(studyId=studyId))
 	print outFile
 	baseFile=resolvePathToFile(basePath,fTuple,dict(studyId=getStudyId(baseProject)))
-  if args.metaStudyFile and baseFile.name == "meta_study.txt":
-    print "Copying", metaFile
-    shutil.copyfile(args.metaStudyFile, str(outFile))
-  else:
-    print "Merging", metaFile
-    print baseFile
-	  baseData=parseMetaData(baseFile)
-	  baseData.update(newData)
-	  if "name" in baseData:
-		  baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
-		  #baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
-	  if "description" in baseData:
-		  baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
-		  pos=baseData["description"].find(" (BATCHES:")
-		  displayBatches = shortMergeBatches
-		  if fTuple[0] == "meta_study.txt":
-			  displayBatches = mergeBatches
-		  if pos>-1:
-			  baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % displayBatches
+	if args.metaStudyFile and baseFile.name == "meta_study.txt":
+		print "Copying", metaFile
+		shutil.copyfile(args.metaStudyFile, str(outFile))
+	else:
+		print "Merging", metaFile
+		print baseFile
+		baseData=parseMetaData(baseFile)
+		baseData.update(newData)
+		if "name" in baseData:
+			baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
+			#baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
+		if "description" in baseData:
+			baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
+			pos=baseData["description"].find(" (BATCHES:")
+			displayBatches = shortMergeBatches
+			if fTuple[0] == "meta_study.txt":
+				displayBatches = mergeBatches
+			if pos>-1:
+				baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % displayBatches
 			elif args.virtualGroupFile:
 				baseData["description"]+=" (ver %s;)" % (GIT_VERSION)
-		  else:
-			  baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, displayBatches)
+			else:
+				baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, displayBatches)
 		writeMetaFile(outFile,metaFiles[metaFile].substitute(baseData))
 		print
 
@@ -339,7 +339,7 @@ if len(dataMergeList)>0:
 		print "inputFile =", mf
 	print "mergedFile =", dataOutputFile
 	print
-	mergedTable=rbind(dataMergeList,unionFieldNames)
+	mergedTable=rbind(dataMergeList,unionFieldNames,sample_to_group)
 	writeTable(mergedTable,dataOutputFile)
 
 	metaMergeList=getPathsForMergeRegEx(projectList,fusionMetaFile)
