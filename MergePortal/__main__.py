@@ -5,6 +5,7 @@ import re
 import datetime
 import subprocess
 import os.path
+from collections import defaultdict
 
 from filetools import *
 from lib import *
@@ -35,9 +36,12 @@ parser.add_argument("--cnaGeneList",help="Set explicit gene list of CNA merge")
 parser.add_argument("--project", action='append', help="project root directory for merge, and optional updated clinical file, seperated by :")
 parser.add_argument("--force","-f", action="store_true", default=False, help="Force overwrite")
 parser.add_argument("--root",default="",help="Set location of hg repository")
+parser.add_argument("--virtualGroupFile","-v",default="",help="Virtual group file")
+parser.add_argument("--metaStudyFile","-s",default="",help="Replacement meta study file")
 args=parser.parse_args()
 
 if not args.project:
+	print >>sys.stderr, "--project is required"
 	parser.print_help()
 	sys.exit()
 
@@ -59,6 +63,20 @@ for pi in args.project:
 		sys.exit()
 baseProject = projectList[0]
 
+# if virtual project
+sample_to_group = defaultdict(str)
+
+# read clusters file
+if args.virtualGroupFile:
+	print "Reading:", args.virtualGroupFile
+	with open(args.virtualGroupFile, "r") as virtual_group_file:
+		if virtual_group_file.readline(): # skip first line
+			for line in virtual_group_file:
+				line = line.strip("\n")
+				cells = line.split("\t")
+				sample_to_group[cells[1].strip()] = cells[0].strip()
+
+include_samples = set(sample_to_group.keys())
 
 if not args.cnaGeneList:
 	geneList=None
@@ -115,7 +133,7 @@ else:
 	print >>sys.stderr, "Merge project number must be specified with -n option"
 	print >>sys.stderr
 	for project in projectList:
-		print >>sys.stderr, "   ",project, " = ", getProjectNumber(project)
+		print >>sys.stderr, "	 ",project, " = ", getProjectNumber(project)
 	print >>sys.stderr
 	print >>sys.stderr
 	sys.exit()
@@ -180,13 +198,24 @@ basePath=Path(baseProject)
 
 
 caseFiles=["cases_all.txt","cases_cna.txt","cases_cnaseq.txt","cases_sequenced.txt"]
+samples_to_projects=defaultdict(set)
 for caseFile in caseFiles:
 	samples = set()
 	for project in projectList:
 		projectPath=Path(project)
-		samples |= getCaseList(projectPath / caseListDir / caseFile)
+		# filter this if virtual project by passing set(sample_to_group.keys())
+		project_samples = getCaseList(projectPath / caseListDir / caseFile, include_samples)
+		samples |= project_samples
+		for sample in project_samples:
+			samples_to_projects[sample].add(project)
 	writeCaseLists(outPath / caseListDir, caseFile, samples, studyId)
 
+replicate_samples = [ (s, p) for (s, p) in samples_to_projects.iteritems() if len(p) > 1]
+if replicate_samples:
+	print >>sys.stderr, "\nReplicate samples found:"
+	for (sample, projects) in replicate_samples:
+		print >>sys.stderr, "Sample", sample, "is found in projects:", ", ".join(projects) , "\n"
+	sys.exit(64) # this will be the exit code for this specific issue
 
 rbindFiles=getFileTemplates("""
 	data_clinical.txt
@@ -197,6 +226,7 @@ rbindFiles=getFileTemplates("""
 for fTuple in rbindFiles:
 	print "-" * 80
 	print "fileSuffix to rbind =", fTuple
+	# TODO virtual project
 	if fTuple[0]=="data_clinical.txt":
 		unionFieldNames=True
 		(mergeList,mergedFile)=getPathsForMerge(projectList,studyId,outPath,fTuple,updatedClinicalFile)
@@ -211,47 +241,59 @@ for fTuple in rbindFiles:
 		print "inputFile =", mf
 	print "mergedFile =", mergedFile
 	print
-	mergedTable=rbind(mergeList,unionFieldNames)
+	mergedTable=rbind(mergeList,unionFieldNames,sample_to_group)
 	writeTable(mergedTable,mergedFile,replace_cancer_type=(fTuple[0]=="data_clinical.txt"))
 
 
 cnaTuple=("data_CNA.txt",None)
 (mergeList,mergedFile)=getPathsForMerge(projectList,studyId,outPath,cnaTuple)
-mergedTable=mergeCNAData(mergeList,geneList)
+mergedTable=mergeCNAData(mergeList,geneList,include_samples)
 writeTable(mergedTable,mergedFile)
 
+# if this is not a virtual study and we have a meta study file
+# use the fields in it, rather than just using that file as the final file
+newData=dict()
+if not args.virtualGroupFile and args.metaStudyFile:
+	newData=parseMetaData(args.metaStudyFile) 
+
 today=str(datetime.date.today())
-newData=dict(
+newData.update(dict(
 	studyId=studyId,tumorType=tumorType,upperTumorType=tumorType.upper(),
 	projectNumber="%s [%s]" % (projectNumber,projectTag),
 	lastUpdateDate=today
-	)
+	))
 
 for metaFile in metaFiles:
-	print "Merging", metaFile
 	fTuple=getFileTemplates(metaFile)[0]
-	baseFile=resolvePathToFile(basePath,fTuple,dict(studyId=getStudyId(baseProject)))
-	print baseFile
-	baseData=parseMetaData(baseFile)
-	baseData.update(newData)
-	if "name" in baseData:
-		baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
-		#baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
-	if "description" in baseData:
-		baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
-		pos=baseData["description"].find(" (BATCHES:")
-		displayBatches = shortMergeBatches
-		if fTuple[0] == "meta_study.txt":
-			displayBatches = mergeBatches
-		if pos>-1:
-			baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % displayBatches
-		else:
-			baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, displayBatches)
 	outFile=resolvePathToFile(outPath,fTuple,dict(studyId=studyId))
 	print outFile
-	writeMetaFile(outFile,metaFiles[metaFile].substitute(baseData))
-	print
-
+	baseFile=resolvePathToFile(basePath,fTuple,dict(studyId=getStudyId(baseProject)))
+	# if virtual study just copy this file
+	if args.virtualGroupFile and args.metaStudyFile and baseFile.name == "meta_study.txt":
+		print "Copying", metaFile
+		shutil.copyfile(args.metaStudyFile, str(outFile))
+	else:
+		print "Merging", metaFile
+		print baseFile
+		baseData=parseMetaData(baseFile)
+		baseData.update(newData)
+		if "name" in baseData:
+			baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
+			#baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
+		if "description" in baseData:
+			baseData["description"]=re.sub(r"2\d\d\d-\d\d-\d\d",today,baseData["description"])
+			pos=baseData["description"].find(" (BATCHES:")
+			displayBatches = shortMergeBatches
+			if fTuple[0] == "meta_study.txt":
+				displayBatches = mergeBatches
+			if pos>-1:
+				baseData["description"]=baseData["description"][:pos]+" (BATCHES: %s)" % displayBatches
+			elif args.virtualGroupFile:
+				baseData["description"]+=" (ver %s;)" % (GIT_VERSION)
+			else:
+				baseData["description"]+=" (ver %s; BATCHES: %s)" % (GIT_VERSION, displayBatches)
+		writeMetaFile(outFile,metaFiles[metaFile].substitute(baseData))
+		print
 
 clinSuppTuple=("data_clinical_supp.txt",None)
 (mergeList,mergedFile)=getPathsForMerge(projectList,studyId,outPath,clinSuppTuple)
@@ -273,13 +315,15 @@ print
 clinSuppExtraPattern="data_clinical_supp_*.txt"
 mergeList=getPathsForMergeRegEx(projectList, clinSuppExtraPattern)
 for clinSuppFile in mergeList:
-	print "Copying", clinSuppFile
+	print "Copying (and filtering if virtual study)", clinSuppFile
 	outputFile=os.path.join(str(outPath), os.path.basename(clinSuppFile))
 	if os.path.isfile(outputFile):
 		print >>sys.stderr, "\nFile ", outputFile, "already exists"
 		print >>sys.stderr, "There might be a file name conflict in multiple projects\n"
 		sys.exit()
-	shutil.copyfile(clinSuppFile, outputFile)
+	#shutil.copyfile(clinSuppFile, outputFile)
+	table=rbind([Path(clinSuppFile)],False,sample_to_group)
+	writeTable(table,Path(outputFile))
 print
 
 
@@ -287,6 +331,8 @@ timelinePattern="data_timeline_*.txt"
 mergeList=getPathsForMergeRegEx(projectList, timelinePattern)
 for timelineFile in mergeList:
 	print "Copying", timelineFile
+	if sample_to_group:
+		print >>sys.stderr, "Do not currently replace patient ids with group ids for timeline file in virtual study\n"
 	outputFile=os.path.join(str(outPath), os.path.basename(timelineFile))
 	if os.path.isfile(outputFile):
 		print >>sys.stderr, "\nFile ", outputFile, "already exists"
@@ -310,7 +356,7 @@ if len(dataMergeList)>0:
 		print "inputFile =", mf
 	print "mergedFile =", dataOutputFile
 	print
-	mergedTable=rbind(dataMergeList,unionFieldNames)
+	mergedTable=rbind(dataMergeList,unionFieldNames,sample_to_group)
 	writeTable(mergedTable,dataOutputFile)
 
 	metaMergeList=getPathsForMergeRegEx(projectList,fusionMetaFile)
@@ -322,4 +368,3 @@ if len(dataMergeList)>0:
 		baseData=parseMetaData(metaMergeList[0])
 		baseData.update(newData)
 		writeMetaFile(metaOutputFile, metaFilesOptional[fusionMetaFile].substitute(baseData))
-
