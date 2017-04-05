@@ -368,3 +368,26 @@ if len(dataMergeList)>0:
 		baseData=parseMetaData(metaMergeList[0])
 		baseData.update(newData)
 		writeMetaFile(metaOutputFile, metaFilesOptional[fusionMetaFile].substitute(baseData))
+
+geneMatrixFile="data_gene_matrix.txt"
+dataMergeList=getPathsForMergeRegEx(projectList,geneMatrixFile)
+if len(dataMergeList)>0:
+	unionFieldNames=False
+	dataOutputFile=os.path.join(str(outPath),geneMatrixFile)
+	geneMatrixMetaFile="meta_gene_matrix.txt"
+	for mf in dataMergeList:
+		print "inputFile =", mf
+	print "mergedFile =", dataOutputFile
+	print
+	mergedTable=rbind(dataMergeList,unionFieldNames,sample_to_group)
+	writeTable(mergedTable,dataOutputFile)
+
+	metaMergeList=getPathsForMergeRegEx(projectList,geneMatrixMetaFile)
+	# write meta file here too if we find any
+	if len(metaMergeList)>0:
+		metaOutputFile=os.path.join(str(outPath),geneMatrixMetaFile)
+		print "Creating", metaOutputFile
+		print "Using", metaMergeList[0]
+		baseData=parseMetaData(metaMergeList[0])
+		baseData.update(newData)
+		writeMetaFile(metaOutputFile, metaFilesOptional[geneMatrixMetaFile].substitute(baseData))

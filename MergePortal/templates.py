@@ -39,6 +39,11 @@ metaFilesOptional={
 """cancer_study_identifier: $studyId
 """
 ),
+ 	"meta_gene_matrix.txt":Template(
+"""cancer_study_identifier: $studyId
+data_filename: data_gene_matrix.txt
+"""
+),
   "meta_fusions.txt":Template(
 """cancer_study_identifier: $studyId
 stable_id: ${studyId}_mutations
