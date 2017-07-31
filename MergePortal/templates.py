@@ -35,7 +35,7 @@ data_filename: ${studyId}_data_cna_hg19.seg"""
 }
 
 metaFilesOptional={
- 	"meta_timeline.txt":Template(
+   "meta_timeline.txt":Template(
 """cancer_study_identifier: $studyId
 """
 ),

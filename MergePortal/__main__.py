@@ -10,6 +10,7 @@ from collections import defaultdict
 from filetools import *
 from lib import *
 from templates import *
+from gene_panel import *
 
 
 PDIR=os.path.dirname(os.path.realpath(__file__))
@@ -38,6 +39,7 @@ parser.add_argument("--force","-f", action="store_true", default=False, help="Fo
 parser.add_argument("--root",default="",help="Set location of hg repository")
 parser.add_argument("--virtualGroupFile","-v",default="",help="Virtual group file")
 parser.add_argument("--metaStudyFile","-s",default="",help="Replacement meta study file")
+parser.add_argument("--skipCaseLists", action="store_true", default=False, help="Do not add any case lists")
 args=parser.parse_args()
 
 if not args.project:
@@ -180,7 +182,6 @@ else:
 
 caseListDir=Path("case_lists")
 
-
 if outPath.exists():
 	if not args.force:
 		print >>sys.stderr, "\nOutput folder", outPath, "exists"
@@ -196,26 +197,27 @@ outPath.mkdir(parents=True)
 
 basePath=Path(baseProject)
 
+if not args.skipCaseLists:
+	caseFiles=["cases_all.txt","cases_cna.txt","cases_cnaseq.txt","cases_sequenced.txt"]
+	samples_to_projects=defaultdict(set)
+	for caseFile in caseFiles:
+		samples = set()
+		for project in projectList:
+			projectPath=Path(project)
+			# filter this if virtual project by passing set(sample_to_group.keys())
+			project_samples = getCaseList(projectPath / caseListDir / caseFile, include_samples)
+			samples |= project_samples
+			for sample in project_samples:
+				samples_to_projects[sample].add(project)
+		writeCaseLists(outPath / caseListDir, caseFile, samples, studyId)
 
-caseFiles=["cases_all.txt","cases_cna.txt","cases_cnaseq.txt","cases_sequenced.txt"]
-samples_to_projects=defaultdict(set)
-for caseFile in caseFiles:
-	samples = set()
-	for project in projectList:
-		projectPath=Path(project)
-		# filter this if virtual project by passing set(sample_to_group.keys())
-		project_samples = getCaseList(projectPath / caseListDir / caseFile, include_samples)
-		samples |= project_samples
-		for sample in project_samples:
-			samples_to_projects[sample].add(project)
-	writeCaseLists(outPath / caseListDir, caseFile, samples, studyId)
-
-replicate_samples = [ (s, p) for (s, p) in samples_to_projects.iteritems() if len(p) > 1]
-if replicate_samples:
-	print >>sys.stderr, "\nReplicate samples found:"
-	for (sample, projects) in replicate_samples:
-		print >>sys.stderr, "Sample", sample, "is found in projects:", ", ".join(projects) , "\n"
-	sys.exit(64) # this will be the exit code for this specific issue
+	# we can only check this if we read the case lists (at least for now)
+	replicate_samples = [ (s, p) for (s, p) in samples_to_projects.iteritems() if len(p) > 1]
+	if replicate_samples:
+		print >>sys.stderr, "\nReplicate samples found:"
+		for (sample, projects) in replicate_samples:
+			print >>sys.stderr, "Sample", sample, "is found in projects:", ", ".join(projects) , "\n"
+		sys.exit(64) # this will be the exit code for this specific issue
 
 rbindFiles=getFileTemplates("""
 	data_clinical.txt
@@ -244,6 +246,7 @@ for fTuple in rbindFiles:
 	mergedTable=rbind(mergeList,unionFieldNames,sample_to_group)
 	writeTable(mergedTable,mergedFile,replace_cancer_type=(fTuple[0]=="data_clinical.txt"))
 
+write_gene_panel_files(studyId,outPath,projectList,include_samples)
 
 cnaTuple=("data_CNA.txt",None)
 (mergeList,mergedFile)=getPathsForMerge(projectList,studyId,outPath,cnaTuple)
@@ -309,9 +312,6 @@ if baseFile.exists():
 		writeTable(mergedTable,mergedFile)
 print
 
-
-
-
 clinSuppExtraPattern="data_clinical_supp_*.txt"
 mergeList=getPathsForMergeRegEx(projectList, clinSuppExtraPattern)
 for clinSuppFile in mergeList:
@@ -326,25 +326,26 @@ for clinSuppFile in mergeList:
 	writeTable(table,Path(outputFile))
 print
 
-
-timelinePattern="data_timeline_*.txt"
-mergeList=getPathsForMergeRegEx(projectList, timelinePattern)
-for timelineFile in mergeList:
-	print "Copying", timelineFile
-	if sample_to_group:
-		print >>sys.stderr, "Do not currently replace patient ids with group ids for timeline file in virtual study\n"
-	outputFile=os.path.join(str(outPath), os.path.basename(timelineFile))
-	if os.path.isfile(outputFile):
-		print >>sys.stderr, "\nFile ", outputFile, "already exists"
-		print >>sys.stderr, "There might be a file name conflict in multiple projects\n"
-		sys.exit()
-	shutil.copyfile(timelineFile, outputFile)
-if(len(mergeList)>0):
-	metaFile="meta_timeline.txt"
-	outputFile=os.path.join(str(outPath), metaFile)
-	print "Creating", outputFile
-	writeMetaFile(outputFile, metaFilesOptional[metaFile].substitute(newData))
-print
+# TODO add back once we can filter on patient id (REAL patient id not virtual one)
+if not args.skipCaseLists:
+	timelinePattern="data_timeline_*.txt"
+	mergeList=getPathsForMergeRegEx(projectList, timelinePattern)
+	for timelineFile in mergeList:
+		print "Copying", timelineFile
+		if sample_to_group:
+			print >>sys.stderr, "Do not currently replace patient ids with group ids for timeline file in virtual study\n"
+		outputFile=os.path.join(str(outPath), os.path.basename(timelineFile))
+		if os.path.isfile(outputFile):
+			print >>sys.stderr, "\nFile ", outputFile, "already exists"
+			print >>sys.stderr, "There might be a file name conflict in multiple projects\n"
+			sys.exit()
+		shutil.copyfile(timelineFile, outputFile)
+	if(len(mergeList)>0):
+		metaFile="meta_timeline.txt"
+		outputFile=os.path.join(str(outPath), metaFile)
+		print "Creating", outputFile
+		writeMetaFile(outputFile, metaFilesOptional[metaFile].substitute(newData))
+	print
 
 fusionDataFile="data_fusions.txt"
 dataMergeList=getPathsForMergeRegEx(projectList,fusionDataFile)
@@ -356,7 +357,7 @@ if len(dataMergeList)>0:
 		print "inputFile =", mf
 	print "mergedFile =", dataOutputFile
 	print
-	mergedTable=rbind(dataMergeList,unionFieldNames,sample_to_group)
+	mergedTable=rbind([Path(mf) for mf in dataMergeList],unionFieldNames,sample_to_group)
 	writeTable(mergedTable,dataOutputFile)
 
 	metaMergeList=getPathsForMergeRegEx(projectList,fusionMetaFile)
