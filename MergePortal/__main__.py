@@ -255,11 +255,12 @@ writeTable(mergedTable,mergedFile)
 
 # if this is not a virtual study and we have a meta study file
 # use the fields in it, rather than just using that file as the final file
-newData=dict()
+newMetaStudyData=dict()
 if not args.virtualGroupFile and args.metaStudyFile:
-	newData=parseMetaData(args.metaStudyFile) 
+	newMetaStudyData=parseMetaData(args.metaStudyFile) 
 
 today=str(datetime.date.today())
+newData=dict()
 newData.update(dict(
 	studyId=studyId,tumorType=tumorType,upperTumorType=tumorType.upper(),
 	projectNumber="%s [%s]" % (projectNumber,projectTag),
@@ -280,6 +281,8 @@ for metaFile in metaFiles:
 		print baseFile
 		baseData=parseMetaData(baseFile)
 		baseData.update(newData)
+		if baseFile.name == "meta_study.txt":
+			baseData.update(newMetaStudyData)
 		if "name" in baseData:
 			baseData["name"]=baseData["name"].replace(getProjectNumber(baseProject),newData["projectNumber"])
 			#baseData["name"]=re.sub(r"^(.+?) - ([^ ]+) (.+)$", r"\1 - %s \3" % (labName.capitalize()[:-1]), baseData["name"])
