@@ -26,11 +26,6 @@ profile_description: $profile_description
 genetic_alteration_type: $genetic_alteration_type
 datatype: $datatype"""
         ),
- 	"meta_gene_matrix.txt":Template(
-"""cancer_study_identifier: $studyId
-data_filename: data_gene_matrix.txt
-"""
-),
     "_meta_cna_hg19_seg.txt":Template(
 """cancer_study_identifier: $studyId
 reference_genome_id: $reference_genome_id
@@ -40,7 +35,7 @@ data_filename: ${studyId}_data_cna_hg19.seg"""
 }
 
 metaFilesOptional={
- 	"meta_timeline.txt":Template(
+   "meta_timeline.txt":Template(
 """cancer_study_identifier: $studyId
 """
 ),
