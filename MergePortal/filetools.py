@@ -50,18 +50,20 @@ def rbind(fnameList, unionFields, sample_to_group):
 	if sample_to_group:
 		include_samples = set(sample_to_group.keys())
 		if sample_to_group: # filter samples
-			if fnameList and (fnameList[0].name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
+			if fnameList and (fnameList[0].name == "data_clinical.txt" or fnameList[0].name == "data_gene_matrix.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
 				sample_id_field = "SAMPLE_ID"
-			elif fnameList and fnameList[0].name == "data_mutations_extended.txt":
+			elif fnameList and (fnameList[0].name == "data_mutations_extended.txt" or fnameList[0].name == "data_fusions.txt"):
 				sample_id_field = "Tumor_Sample_Barcode"
 			elif fnameList and fnameList[0].name.endswith("_data_cna_hg19.seg"):
 				sample_id_field = "ID"
 			else:
-				raise ValueError("Need to filter samples for virtual project and do not know sample column name for file " + fname)
+				raise ValueError("Need to filter samples for virtual project and do not know sample column name for file " + fnameList[0].name if fnameList else "?")
 				sys.exit()
 	for fname in fnameList:
 		print fname
-		cin=csv.DictReader(smartOpen(fname),delimiter=CSVDELIM)
+		fh=smartOpen(fname)
+		skipComments(fh)
+		cin=csv.DictReader(fh,delimiter=CSVDELIM)
 		if not fieldnames:
 			fieldnames=list(cin.fieldnames)
 		elif fieldnames != cin.fieldnames:
@@ -78,15 +80,14 @@ def rbind(fnameList, unionFields, sample_to_group):
 				raise ValueError("Inconsistent colnames")
 				sys.exit()
 		for rec in cin:
-			if not sample_id_field or rec[sample_id_field] in include_samples:
-				if sample_id_field and rec[sample_id_field] in include_samples and (fname.name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
+			if not sample_id_field or (sample_id_field in rec and rec[sample_id_field] in include_samples):
+				if sample_id_field and sample_id_field in rec and rec[sample_id_field] in include_samples and (fname.name == "data_clinical.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
 					rec["PATIENT_ID"] = sample_to_group[rec[sample_id_field]]
 				data.append(dict(rec))
 	return (fieldnames,data)
 
 
 def writeTable(table,outfile,replace_cancer_type=None):
-	fp=smartOpen(str(outfile),mode="w")
 	if replace_cancer_type and "CANCER_TYPE" in table[0] and "ONCOTREE_CODE" in table[0]:
 		table[0].remove("CANCER_TYPE")
 		for r in table[1]:
@@ -95,15 +96,19 @@ def writeTable(table,outfile,replace_cancer_type=None):
 			if "CANCER_TYPE" in r:
 				del r["CANCER_TYPE"]
 
-	cout=csv.DictWriter(fp,table[0],delimiter=CSVDELIM,lineterminator="\n")
-	cout.writeheader()
-	for r in table[1]:
-		try:
-			cout.writerow(r)
-		except TypeError:
-			print r
-			raise
-			sys.exit()
+	if (len(table[1]) > 1):
+			fp=smartOpen(str(outfile),mode="w")
+			cout=csv.DictWriter(fp,table[0],delimiter=CSVDELIM,lineterminator="\n")
+			cout.writeheader()
+			for r in table[1]:
+				try:
+					cout.writerow(r)
+				except TypeError:
+					print r
+					raise
+					sys.exit()
+	else:
+		print "WARN: %s will have no data, not writing file" % (outfile)
 
 fixGeneNames={"FAM123B":"AMER1"}
 
@@ -325,3 +330,14 @@ def resolvePathToFile(path,fnameTuple,templateData=dict()):
 
 	fullPath = path / fname
 	return fullPath
+
+def skipComments(fileHandle):
+	startReadingHere = fileHandle.tell()
+	line = fileHandle.readline()
+	while line.startswith("#"):
+		startReadingHere = fileHandle.tell()
+		line = fileHandle.readline() 
+
+	# not a comment, reset to start of line
+	fileHandle.seek(startReadingHere)
+	return
