@@ -335,7 +335,7 @@ if not args.skipCaseLists:
 	mergeList=getPathsForMergeRegEx(projectList, timelinePattern)
 	for timelineFile in mergeList:
 		print "Copying", timelineFile
-		if sample_to_group:
+		if sample_to_group and len(sample_to_group) > 0:
 			print >>sys.stderr, "Do not currently replace patient ids with group ids for timeline file in virtual study\n"
 		outputFile=os.path.join(str(outPath), os.path.basename(timelineFile))
 		if os.path.isfile(outputFile):
