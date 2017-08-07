@@ -47,9 +47,9 @@ def rbind(fnameList, unionFields, sample_to_group):
 	data=[]
 	include_samples = set()
 	sample_id_field = None
-	if sample_to_group:
+	if sample_to_group and len(sample_to_group) > 0:
 		include_samples = set(sample_to_group.keys())
-		if sample_to_group: # filter samples
+		if sample_to_group and len(sample_to_group) > 0: # filter samples
 			if fnameList and (fnameList[0].name == "data_clinical.txt" or fnameList[0].name == "data_gene_matrix.txt" or fnameList[0].name.startswith("data_clinical_supp_")):
 				sample_id_field = "SAMPLE_ID"
 			elif fnameList and (fnameList[0].name == "data_mutations_extended.txt" or fnameList[0].name == "data_fusions.txt"):
@@ -96,7 +96,7 @@ def writeTable(table,outfile,replace_cancer_type=None):
 			if "CANCER_TYPE" in r:
 				del r["CANCER_TYPE"]
 
-	if (len(table[1]) > 1):
+	if (len(table[1]) > 0):
 			fp=smartOpen(str(outfile),mode="w")
 			cout=csv.DictWriter(fp,table[0],delimiter=CSVDELIM,lineterminator="\n")
 			cout.writeheader()
