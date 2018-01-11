@@ -96,7 +96,7 @@ def writeTable(table,outfile,replace_cancer_type=None):
 			if "CANCER_TYPE" in r:
 				del r["CANCER_TYPE"]
 
-	if (len(table[1]) > 0):
+	if (len(table[1]) > 0) or (outfile.name == "data_mutations_extended.txt"):
 			fp=smartOpen(str(outfile),mode="w")
 			cout=csv.DictWriter(fp,table[0],delimiter=CSVDELIM,lineterminator="\n")
 			cout.writeheader()
